@@ -1,7 +1,6 @@
 # gui/app.py
 import logging
 import os
-from pathlib import Path
 import platform
 import shutil
 import subprocess
@@ -13,9 +12,6 @@ from tkinter import filedialog
 from tkinter import ttk
 from tkinter import scrolledtext
 import psutil
-from ttkthemes import ThemedTk
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 
 class App:
