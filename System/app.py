@@ -427,14 +427,14 @@ class FileManagerWindow:
         # Display the directory structure
         self.display_directory_structure()
 
-        self.return_button = tk.Button(master, text="Вернуться в меню", command=self.return_to_main_menu)
-        self.return_button.pack(pady=5, fill="both", expand=True)
-        
-        self.delete_button = tk.Button(self.master, text="Удалить", command=self._delete_selected_item)
+        self.delete_button = tk.Button(self.master, text="Delete", command=self._delete_selected_item)
         self.delete_button.pack(pady=5, fill="both", expand=True)
 
-        self.delete_permanently_button = tk.Button(master, text="Удалить полность", command=self.delete_completely)
+        self.delete_permanently_button = tk.Button(master, text="Delete Permanently", command=self.delete_completely)
         self.delete_permanently_button.pack(pady=5, fill="both", expand=True)
+
+        self.return_button = tk.Button(master, text="Return to Main Menu", command=self.return_to_main_menu)
+        self.return_button.pack(pady=5, fill="both", expand=True)
 
     def display_directory_structure(self):
         self.tree.delete(*self.tree.get_children())  # Clear previous content
@@ -444,16 +444,6 @@ class FileManagerWindow:
         for item in os.listdir(directory):
             item_path = os.path.join(directory, item)
             item_type = "Folder" if os.path.isdir(item_path) else "File"
-
-            # Make System and Trash unclickable
-            if item == "System" or \
-               (item == "Trash" and not os.path.isdir(item_path)) or \
-               item == ".git" or \
-               parent.endswith(".git") or \
-               (parent == "" and item == "Trash"):
-                item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
-                self.tree.tag_configure(item_id, foreground="gray")
-                continue
 
             item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
             if os.path.isdir(item_path):
@@ -472,17 +462,14 @@ class FileManagerWindow:
             else:
                 self.selected_item_path = None
 
-    def return_to_main_menu(self):
-        self.master.destroy()
-        
-    
     def delete_item(self):
         pass  # Placeholder for the delete item functionality
-        # Uncomment and implement as needed
-        # if hasattr(self, "selected_item_path") and self.selected_item_path:
-        #     trash_path = os.path.join(self.root_directory, "Trash")
-        #     shutil.move(self.selected_item_path, trash_path)
-        #     self.display_directory_structure()
 
     def delete_completely(self):
         pass  # Placeholder for the delete completely functionality
+
+    def return_to_main_menu(self):
+        self.master.destroy()
+
+    def _delete_selected_item(self):
+        pass  # Placeholder for the delete selected item functionality
