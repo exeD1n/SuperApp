@@ -485,12 +485,17 @@ class OSFileManager:
     def _display_directory_structure(self, parent, directory):
         for item in os.listdir(directory):
             item_path = os.path.join(directory, item)
+
+            # Пропускаем "System" и ".git"
+            if item == "System" or item == ".git":
+                continue
+
             item_type = "Folder" if os.path.isdir(item_path) else "File"
 
             item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
             if os.path.isdir(item_path):
                 self._display_directory_structure(item_id, item_path)
-
+                
     def create_file(self):
         file_name = filedialog.asksaveasfilename(initialdir=self.current_directory, title="Create File", defaultextension=".txt")
         if file_name:
