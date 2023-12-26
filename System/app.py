@@ -11,6 +11,7 @@ from tkinter import messagebox
 from tkinter import simpledialog
 from tkinter import filedialog
 from tkinter import ttk
+from tkinter import scrolledtext
 import psutil
 from ttkthemes import ThemedTk
 from watchdog.observers import Observer
@@ -249,12 +250,6 @@ class ChannelInfoApp:
 
     def return_to_main_menu(self):
         self.master.destroy()
-        
-# gui/terminal_gui.py
-import tkinter as tk
-from tkinter import scrolledtext
-import subprocess
-import platform
 
 class TerminalGUI:
     def __init__(self, master, return_to_main_menu_callback):
@@ -283,33 +278,62 @@ class TerminalGUI:
         command = self.input_entry.get()
 
         try:
-            # Проверяем платформу для корректного запуска команд
+            # Выполняем команду
+            result = self.run_terminal_command(command)
+
+            # Очищаем текстовое поле вывода
+            self.output_text.delete(1.0, tk.END)
+
+            # Выводим результат в текстовое поле
+            self.output_text.insert(tk.END, result)
+
+        except Exception as e:
+            # Обрабатываем исключения и выводим сообщение об ошибке
+            self.output_text.delete(1.0, tk.END)
+            self.output_text.insert(tk.END, f"Error: {str(e)}")
+
+    def run_terminal_command(self, command):
+        if command.startswith("pingyet"):
+            # Реализация команды ping
+            host = command.split()[1]
+            result = subprocess.run(["ping", "-c", "4", host], capture_output=True, text=True)
+            return result.stdout + result.stderr
+        elif command.startswith("netconfig"):
+            # Реализация команды ipconfig
+            if platform.system() == "Windows":
+                result = subprocess.run(["ipconfig"], capture_output=True, text=True)
+            else:
+                result = subprocess.run(["ifconfig"], capture_output=True, text=True)
+            return result.stdout + result.stderr
+        elif command.startswith("chek"):
+            # Реализация команды ls
+            files = os.listdir()
+            return "\n".join(files)
+        elif command.startswith("go "):
+            # Реализация команды cd
+            path = command.split()[1]
+            os.chdir(path)
+            return f"Current directory: {os.getcwd()}"
+        elif command.startswith("touch "):
+            # Реализация команды touch (создание файла)
+            filename = command.split()[1]
+            open(filename, "w").close()
+            return f"File '{filename}' created."
+        else:
+            # Для других команд используем системные вызовы
             if platform.system() == "Windows":
                 process = subprocess.Popen(
                     command, shell=True, stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE, stdin=subprocess.PIPE, text=True
                 )
             else:
-                # For Linux, split the command into a list for proper execution
                 process = subprocess.Popen(
                     command.split(), shell=False, stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE, stdin=subprocess.PIPE, text=True
                 )
 
-            # Получаем результат выполнения команды
             output, error = process.communicate()
-
-            # Очищаем текстовое поле вывода
-            self.output_text.delete(1.0, tk.END)
-
-            # Выводим результат в текстовое поле
-            self.output_text.insert(tk.END, output)
-            self.output_text.insert(tk.END, error)
-
-        except Exception as e:
-            # Handle exceptions and display the error message
-            self.output_text.delete(1.0, tk.END)
-            self.output_text.insert(tk.END, f"Error: {str(e)}")
+            return output + error
 
     def return_to_main_menu(self):
         # Закрываем окно терминала
@@ -409,13 +433,13 @@ class ProcessesWindow:
         self.processes_window.destroy()
         
 class FileManagerWindow:
-    def __init__(self, master, root_directory=None):
+    def __init__(self, master, root_directory=None, trash_directory=None):
         self.master = master
         self.master.title("Файловый менеджер")
         self.master.geometry("600x400")
 
         # Define the root directory for the file manager
-        self.root_directory = root_directory or os.path.abspath("C:\\Users\\danii\\OneDrive\\Документы\\SuperApp")
+        self.root_directory = root_directory or os.path.abspath("C:\\Users\\danii\\Downloads\\SuperApp")
 
         # Create Treeview widget to display directory structure
         self.tree = ttk.Treeview(master, columns=("Type",))
@@ -427,7 +451,7 @@ class FileManagerWindow:
         # Display the directory structure
         self.display_directory_structure()
 
-        self.delete_button = tk.Button(self.master, text="Delete", command=self._delete_selected_item)
+        self.delete_button = tk.Button(self.master, text="Delete", command=self.delete_item)
         self.delete_button.pack(pady=5, fill="both", expand=True)
 
         self.delete_permanently_button = tk.Button(master, text="Delete Permanently", command=self.delete_completely)
@@ -445,31 +469,53 @@ class FileManagerWindow:
             item_path = os.path.join(directory, item)
             item_type = "Folder" if os.path.isdir(item_path) else "File"
 
+            # Make System unclickable and hide .git
+            if item == "System" or \
+               item == ".git" or \
+               parent.endswith(".git"):
+                continue
+
             item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
             if os.path.isdir(item_path):
                 self._display_directory_structure(item_id, item_path)
 
     def display_trash_contents(self):
-        trash_path = os.path.join(self.root_directory, "Trash")
-        self._display_directory_structure("", trash_path)
+        self.tree.delete(*self.tree.get_children())  # Clear previous content
+        self._display_directory_structure("", self.trash_directory)
 
     def select_item(self, event):
         selected_item = self.tree.selection()
         if selected_item:
-            item_type = self.tree.set(selected_item[0], "Type")
-            if item_type == "Folder":
-                self.selected_item_path = os.path.join(self.root_directory, self.tree.item(selected_item[0], "text"))
-            else:
-                self.selected_item_path = None
+            self.selected_item = selected_item[0]
 
     def delete_item(self):
-        pass  # Placeholder for the delete item functionality
+        if hasattr(self, "selected_item"):
+            # Получаем полный путь к выбранному элементу
+            item_path = os.path.join(self.root_directory, self.tree.item(self.selected_item, "text"))
+    
+            # Проверяем существование файла или папки
+            if os.path.exists(item_path):
+                # Определяем местоположение папки Trash
+                trash_path = self.trash_directory
+                print(trash_path)
+    
+                # Перемещаем в корзину
+                if os.path.isdir(item_path):
+                    shutil.move(item_path, trash_path)
+                else:
+                    shutil.move(item_path, os.path.join(trash_path, os.path.basename(item_path)))
+    
+                # Обновляем структуру после удаления
+                self._update_structure()
+                self.display_trash_contents()
+            else:
+                print(f"Error: File or directory not found at {item_path}")
 
     def delete_completely(self):
-        pass  # Placeholder for the delete completely functionality
+        pass
+
+    def _update_structure(self):
+        self.display_directory_structure()
 
     def return_to_main_menu(self):
         self.master.destroy()
-
-    def _delete_selected_item(self):
-        pass  # Placeholder for the delete selected item functionality
