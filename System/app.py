@@ -71,7 +71,7 @@ class App:
     def open_file_manager_window(self):
         # Создаем окно FileManagerWindow при нажатии кнопки
         file_manager_root = tk.Tk()
-        file_manager_window = FileManagerWindow(file_manager_root)
+        file_manager_window = OSFileManager(file_manager_root)
         file_manager_root.mainloop()
 
     def log_button_click(self, button_text, command_function):
@@ -432,17 +432,44 @@ class ProcessesWindow:
     def destroy(self):
         self.processes_window.destroy()
         
-class FileManagerWindow:
-    def __init__(self, master, root_directory=None, trash_directory=None):
+
+class OSFileManager:
+    def __init__(self, master):
         self.master = master
-        self.master.title("Файловый менеджер")
-        self.master.geometry("600x400")
+        self.master.title("OS File Manager")
+        self.master.geometry("800x500")
 
-        # Define the root directory for the file manager
-        self.root_directory = root_directory or os.path.abspath("C:\\Users\\danii\\Downloads\\SuperApp")
+        self.current_directory = os.getcwd()
+        self.trash_directory = os.path.join(os.getcwd(), "Trash")
 
-        # Create Treeview widget to display directory structure
-        self.tree = ttk.Treeview(master, columns=("Type",))
+        self.create_gui()
+
+    def create_gui(self):
+        # Frame for buttons
+        button_frame = tk.Frame(self.master)
+        button_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # Buttons
+        create_file_button = tk.Button(button_frame, text="Create File", command=self.create_file)
+        create_file_button.pack(side=tk.LEFT, padx=5)
+
+        create_folder_button = tk.Button(button_frame, text="Create Folder", command=self.create_folder)
+        create_folder_button.pack(side=tk.LEFT, padx=5)
+
+        delete_button = tk.Button(button_frame, text="Delete", command=self.delete_item)
+        delete_button.pack(side=tk.LEFT, padx=5)
+
+        move_button = tk.Button(button_frame, text="Move", command=self.move_item)
+        move_button.pack(side=tk.LEFT, padx=5)
+
+        open_button = tk.Button(button_frame, text="Open", command=self.open_item)
+        open_button.pack(side=tk.LEFT, padx=5)
+
+        clear_trash_button = tk.Button(button_frame, text="Clear Trash", command=self.clear_trash)
+        clear_trash_button.pack(side=tk.LEFT, padx=5)
+
+        # Treeview to display directory structure
+        self.tree = ttk.Treeview(self.master, columns=("Type",))
         self.tree.heading("#0", text="Name")
         self.tree.heading("Type", text="Type")
         self.tree.pack(expand=True, fill=tk.BOTH)
@@ -451,37 +478,31 @@ class FileManagerWindow:
         # Display the directory structure
         self.display_directory_structure()
 
-        self.delete_button = tk.Button(self.master, text="Delete", command=self.delete_item)
-        self.delete_button.pack(pady=5, fill="both", expand=True)
-
-        self.delete_permanently_button = tk.Button(master, text="Delete Permanently", command=self.delete_completely)
-        self.delete_permanently_button.pack(pady=5, fill="both", expand=True)
-
-        self.return_button = tk.Button(master, text="Return to Main Menu", command=self.return_to_main_menu)
-        self.return_button.pack(pady=5, fill="both", expand=True)
-
     def display_directory_structure(self):
         self.tree.delete(*self.tree.get_children())  # Clear previous content
-        self._display_directory_structure("", self.root_directory)
+        self._display_directory_structure("", self.current_directory)
 
     def _display_directory_structure(self, parent, directory):
         for item in os.listdir(directory):
             item_path = os.path.join(directory, item)
             item_type = "Folder" if os.path.isdir(item_path) else "File"
 
-            # Make System unclickable and hide .git
-            if item == "System" or \
-               item == ".git" or \
-               parent.endswith(".git"):
-                continue
-
             item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
             if os.path.isdir(item_path):
                 self._display_directory_structure(item_id, item_path)
 
-    def display_trash_contents(self):
-        self.tree.delete(*self.tree.get_children())  # Clear previous content
-        self._display_directory_structure("", self.trash_directory)
+    def create_file(self):
+        file_name = filedialog.asksaveasfilename(initialdir=self.current_directory, title="Create File", defaultextension=".txt")
+        if file_name:
+            with open(file_name, "w"):
+                pass
+            self.display_directory_structure()
+
+    def create_folder(self):
+        folder_name = filedialog.askdirectory(initialdir=self.current_directory, title="Create Folder")
+        if folder_name:
+            os.makedirs(folder_name)
+            self.display_directory_structure()
 
     def select_item(self, event):
         selected_item = self.tree.selection()
@@ -490,32 +511,48 @@ class FileManagerWindow:
 
     def delete_item(self):
         if hasattr(self, "selected_item"):
-            # Получаем полный путь к выбранному элементу
-            item_path = os.path.join(self.root_directory, self.tree.item(self.selected_item, "text"))
-    
-            # Проверяем существование файла или папки
+            item_name = self.tree.item(self.selected_item, "text")
+            item_path = os.path.join(self.current_directory, item_name)
+
             if os.path.exists(item_path):
-                # Определяем местоположение папки Trash
+                # Move to Trash
                 trash_path = self.trash_directory
-                print(trash_path)
-    
-                # Перемещаем в корзину
-                if os.path.isdir(item_path):
-                    shutil.move(item_path, trash_path)
-                else:
-                    shutil.move(item_path, os.path.join(trash_path, os.path.basename(item_path)))
-    
-                # Обновляем структуру после удаления
-                self._update_structure()
-                self.display_trash_contents()
+                shutil.move(item_path, os.path.join(trash_path, item_name))
+                self.display_directory_structure()
             else:
-                print(f"Error: File or directory not found at {item_path}")
+                messagebox.showerror("Error", f"File or directory not found at {item_path}")
 
-    def delete_completely(self):
-        pass
+    def move_item(self):
+        if hasattr(self, "selected_item"):
+            item_name = self.tree.item(self.selected_item, "text")
+            item_path = os.path.join(self.current_directory, item_name)
 
-    def _update_structure(self):
-        self.display_directory_structure()
+            if os.path.exists(item_path):
+                destination = filedialog.askdirectory(initialdir=self.current_directory, title="Move to Folder")
+                if destination:
+                    shutil.move(item_path, os.path.join(destination, item_name))
+                    self.display_directory_structure()
+            else:
+                messagebox.showerror("Error", f"File or directory not found at {item_path}")
 
-    def return_to_main_menu(self):
-        self.master.destroy()
+    def open_item(self):
+        if hasattr(self, "selected_item"):
+            item_name = self.tree.item(self.selected_item, "text")
+            item_path = os.path.join(self.current_directory, item_name)
+
+            try:
+                subprocess.Popen(["open", item_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except FileNotFoundError:
+                messagebox.showinfo("Info", "Cannot open the file.")
+
+    def clear_trash(self):
+        confirm = messagebox.askyesno("Clear Trash", "Are you sure you want to permanently delete all items in the Trash?")
+        if confirm:
+            trash_items = os.listdir(self.trash_directory)
+            for item in trash_items:
+                item_path = os.path.join(self.trash_directory, item)
+                if os.path.isfile(item_path):
+                    os.remove(item_path)
+                else:
+                    shutil.rmtree(item_path)
+            self.display_directory_structure()
