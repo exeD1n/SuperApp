@@ -12,6 +12,7 @@ from tkinter import filedialog
 from tkinter import ttk
 from tkinter import scrolledtext
 import psutil
+from ttkthemes import ThemedTk
 
 
 class App:
