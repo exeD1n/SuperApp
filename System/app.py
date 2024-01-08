@@ -449,7 +449,7 @@ class ProcessesWindow:
 class OSFileManager:
     def __init__(self, master):
         self.master = master
-        self.master.title("OS File Manager")
+        self.master.title("Файловый менеджер ОС")
         self.master.geometry("800x500")
 
         self.current_directory = os.getcwd()
@@ -463,28 +463,28 @@ class OSFileManager:
         button_frame.pack(side=tk.TOP, fill=tk.X)
 
         # Buttons
-        create_file_button = tk.Button(button_frame, text="Create File", command=self.create_file)
+        create_file_button = tk.Button(button_frame, text="Создать файл", command=self.create_file)
         create_file_button.pack(side=tk.LEFT, padx=5)
 
-        create_folder_button = tk.Button(button_frame, text="Create Folder", command=self.create_folder)
+        create_folder_button = tk.Button(button_frame, text="Создать папку", command=self.create_folder)
         create_folder_button.pack(side=tk.LEFT, padx=5)
 
-        delete_button = tk.Button(button_frame, text="Delete", command=self.delete_item)
+        delete_button = tk.Button(button_frame, text="Удалить", command=self.delete_item)
         delete_button.pack(side=tk.LEFT, padx=5)
 
-        move_button = tk.Button(button_frame, text="Move", command=self.move_item)
+        move_button = tk.Button(button_frame, text="Переместить", command=self.move_item)
         move_button.pack(side=tk.LEFT, padx=5)
 
-        open_button = tk.Button(button_frame, text="Open", command=self.open_item)
+        open_button = tk.Button(button_frame, text="Открыть", command=self.open_item)
         open_button.pack(side=tk.LEFT, padx=5)
 
-        clear_trash_button = tk.Button(button_frame, text="Clear Trash", command=self.clear_trash)
+        clear_trash_button = tk.Button(button_frame, text="Очистить корзину", command=self.clear_trash)
         clear_trash_button.pack(side=tk.LEFT, padx=5)
 
         # Treeview to display directory structure
         self.tree = ttk.Treeview(self.master, columns=("Type",))
-        self.tree.heading("#0", text="Name")
-        self.tree.heading("Type", text="Type")
+        self.tree.heading("#0", text="Имя")
+        self.tree.heading("Type", text="Тип")
         self.tree.pack(expand=True, fill=tk.BOTH)
         self.tree.bind("<ButtonRelease-1>", self.select_item)
 
@@ -495,29 +495,54 @@ class OSFileManager:
         self.tree.delete(*self.tree.get_children())  # Clear previous content
         self._display_directory_structure("", self.current_directory)
 
+        # Display contents of the USB flash drive
+        usb_drive = self.get_usb_drive()
+        if usb_drive:
+            self._display_directory_structure("", usb_drive)
+
     def _display_directory_structure(self, parent, directory):
-        for item in os.listdir(directory):
-            item_path = os.path.join(directory, item)
+        try:
+            for item in os.listdir(directory):
+                item_path = os.path.join(directory, item)
 
-            # Пропускаем "System" и ".git"
-            if item == "System" or item == ".git":
-                continue
+                # Skip "System" and ".git"
+                if item == "System" or item == ".git":
+                    continue
 
-            item_type = "Folder" if os.path.isdir(item_path) else "File"
+                item_type = "Folder" if os.path.isdir(item_path) else "File"
 
-            item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
-            if os.path.isdir(item_path):
-                self._display_directory_structure(item_id, item_path)
-                
+                item_id = self.tree.insert(parent, "end", text=item, values=(item_type,))
+                if os.path.isdir(item_path):
+                    self._display_directory_structure(item_id, item_path)
+        except FileNotFoundError:
+            messagebox.showerror("Ошибка", f"Директория не найдена: {directory}")
+
+    def get_usb_drive(self):
+        # Use lsblk command to list block devices
+        try:
+            lsblk_output = subprocess.check_output(['lsblk', '-o', 'NAME,MOUNTPOINT'])
+            lines = lsblk_output.decode('utf-8').split('\n')
+
+            # Find the USB drive (assuming it's mounted under /media/)
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 2 and '/media/' in parts[1]:
+                    return parts[1]
+
+            return None
+        except subprocess.CalledProcessError:
+            messagebox.showerror("Ошибка", "Не удалось выполнить команду lsblk")
+            return None
+
     def create_file(self):
-        file_name = filedialog.asksaveasfilename(initialdir=self.current_directory, title="Create File", defaultextension=".txt")
+        file_name = filedialog.asksaveasfilename(initialdir=self.current_directory, title="Создать файл", defaultextension=".txt")
         if file_name:
             with open(file_name, "w"):
                 pass
             self.display_directory_structure()
 
     def create_folder(self):
-        folder_name = filedialog.askdirectory(initialdir=self.current_directory, title="Create Folder")
+        folder_name = filedialog.askdirectory(initialdir=self.current_directory, title="Создать папку")
         if folder_name:
             os.makedirs(folder_name)
             self.display_directory_structure()
@@ -538,7 +563,7 @@ class OSFileManager:
                 shutil.move(item_path, os.path.join(trash_path, item_name))
                 self.display_directory_structure()
             else:
-                messagebox.showerror("Error", f"File or directory not found at {item_path}")
+                messagebox.showerror("Ошибка", f"Файл или папка не найдены по пути: {item_path}")
 
     def move_item(self):
         if hasattr(self, "selected_item"):
@@ -546,12 +571,12 @@ class OSFileManager:
             item_path = os.path.join(self.current_directory, item_name)
 
             if os.path.exists(item_path):
-                destination = filedialog.askdirectory(initialdir=self.current_directory, title="Move to Folder")
+                destination = filedialog.askdirectory(initialdir=self.current_directory, title="Переместить в папку")
                 if destination:
                     shutil.move(item_path, os.path.join(destination, item_name))
                     self.display_directory_structure()
             else:
-                messagebox.showerror("Error", f"File or directory not found at {item_path}")
+                messagebox.showerror("Ошибка", f"Файл или папка не найдены по пути: {item_path}")
 
     def open_item(self):
         if hasattr(self, "selected_item"):
@@ -559,12 +584,12 @@ class OSFileManager:
             item_path = os.path.join(self.current_directory, item_name)
 
             try:
-                subprocess.Popen(["open", item_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.Popen(["xdg-open", item_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             except FileNotFoundError:
-                messagebox.showinfo("Info", "Cannot open the file.")
+                messagebox.showinfo("Информация", "Не удается открыть файл.")
 
     def clear_trash(self):
-        confirm = messagebox.askyesno("Clear Trash", "Are you sure you want to permanently delete all items in the Trash?")
+        confirm = messagebox.askyesno("Очистить корзину", "Вы уверены, что хотите окончательно удалить все элементы из корзины?")
         if confirm:
             trash_items = os.listdir(self.trash_directory)
             for item in trash_items:
